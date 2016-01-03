@@ -30,20 +30,18 @@ class ControlServer(object):
 
     def process(self):
         # Receive the payload from server
-        payload = self.socket.recv()
+        payload = json.loads(self.socket.recv())
+        sequence = payload['seq']
+        print(payload['control'])
         self.cycles += 1
 
         # Do work
 
-        print("I: Normal request (%s)" % payload)
-        time.sleep(.1)
+        print("I: Normal request (%s)" % sequence)
+        time.sleep(.01)
 
-        # Send payload back to server
-        self.socket.send(payload)
-
-
-    def ack(self):
-        self.socket.send('ack')
+        # Send ack sequence back to server
+        self.socket.send(str(sequence))
 
 
 control = ControlServer()
