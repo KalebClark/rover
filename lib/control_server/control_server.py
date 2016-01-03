@@ -13,12 +13,14 @@ import json
 class ControlServer(object):
 
     payload = {}
-    serverIP   = '*'
-    serverPORT = '5550'
+    #serverIP   = '*'
+    #serverPORT = '5550'
     cycles = 0
 
-    def __init__(self):
+    def __init__(self, serverIP, serverPORT):
         # Init class
+        self.serverIP = serverIP
+        self.serverPORT = serverPORT
         self.serverAddr = "tcp://"+self.serverIP+":"+self.serverPORT
         self.connect()
 
@@ -32,19 +34,21 @@ class ControlServer(object):
         # Receive the payload from server
         payload = json.loads(self.socket.recv())
         sequence = payload['seq']
-        print(payload['control'])
+        #print(payload['control'])
         self.cycles += 1
 
         # Do work
 
-        print("I: Normal request (%s)" % sequence)
-        time.sleep(.01)
+        #print("I: Normal request (%s)" % sequence)
+        #time.sleep(.01)
 
         # Send ack sequence back to server
         self.socket.send(str(sequence))
+        payload.pop('seq', None)
+        return payload
 
 
-control = ControlServer()
+#control = ControlServer()
 
-while True:
-    control.process()
+#while True:
+#    control.process()
