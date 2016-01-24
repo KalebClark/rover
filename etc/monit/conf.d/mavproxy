@@ -1,0 +1,3 @@
+check process mavproxy with pidfile /var/run/mavproxy.pid
+    start program = "/opt/rover/etc/init.d/mavproxy start"
+    stop program = "/opt/rover/etc/init.d/mavproxy stop"

@@ -1,0 +1,3 @@
+check process control-server with pidfile /var/run/control.pid
+    start program = "/opt/rover/etc/init.d/control start"
+    stop program = "/opt/rover/etc/init.d/control stop"

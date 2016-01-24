@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+# Execute startup of all files in this directory.
+
+FILES=/opt/rover/etc/init.d/*
+ABSOLUTE_PATH=$(cd `dirname "${BASH_SOURCE[0]}"` && pwd)/`basename "${BASH_SOURCE[0]}"`
+
+# Run PRE INIT startup commands
+echo "Cleaning up log files"
+/usr/sbin/logrotate -f /opt/rover/etc/logrotate.d/control-server
+
+for f in $FILES
+do
+    # Skip Self
+    if [ $f == $ABSOLUTE_PATH ]
+    then
+        continue
+    fi
+
+    # Execute the file
+    $f stop
+    $f start
+
+done
+
+# Run POST INIT startup commands
+
+
