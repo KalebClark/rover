@@ -46,6 +46,7 @@ do_stop_servod () {
 do_start () {
     log_daemon_msg "Starting system $DAEMON_NAME daemon"
     start-stop-daemon --start --background --pidfile $PIDFILE --make-pidfile --user $DAEMON_USER --chuid $DAEMON_USER --startas $DAEMON -- $DAEMON_OPTS
+    renice -19 -p `cat $PIDFILE`
     log_end_msg $?
 }
 do_stop () {
@@ -57,14 +58,14 @@ do_stop () {
 case "$1" in
 
     start|stop)
-        do_${1}_servod
+        #do_${1}_servod
         do_${1}
         ;;
 
     restart|reload|force-reload)
-        do_stop_servod
+        #do_stop_servod
         do_stop
-        do_start_servod
+        #do_start_servod
         do_start
         ;;
 

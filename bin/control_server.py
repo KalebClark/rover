@@ -6,24 +6,31 @@
 # Control Server
 # Recieves info from groundstation and processes.
 
-import sys
 #sys.path.append('/opt/rover/lib')
 # from dklib import dklib
 import ConfigParser
-import zmq
-import time
-import os
 import json
 import logging
 import math
+import zmq
 from numpy import interp
 from Adafruit_PWM_Servo_Driver import PWM
-import curses
-import zlib
+
+
+#from lib.Adafruit_PWM_Servo_Driver.Adafruit_PWM_Servo_Driver import PWM
+
+
+# Configure Config File
+###############################################################################
+configFile = "/opt/rover/etc/rover.cfg"
+config = ConfigParser.RawConfigParser()
+config.read(configFile)
 
 # Configure Logging
+###############################################################################
 logging.basicConfig(
-    filename="/opt/rover/logs/control-server.log",
+    #filename="/opt/rover/logs/control-server.log",
+    filename=config.get('control', 'logfile'),
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     datefmt="%Y-%m-%d %I:%M:%S %p",
     level=logging.DEBUG
@@ -32,8 +39,6 @@ logging.basicConfig(
 class ControlServer(object):
 
     payload = {}
-    #serverIP   = '*'
-    #serverPORT = '5550'
     cycles = 0
     debug = False
     telem = False
@@ -47,8 +52,8 @@ class ControlServer(object):
         self.connect()
 
         # Init PWM Driver
-        self.pwm = PWM(0x40, debug=False)
-        self.pwm.setPWMFreq(60)
+        self.pwm = PWM(0x40, debug=config.get('control', 'pwm_debug'))
+        self.pwm.setPWMFreq(config.get('control', 'pwm_freq'))
 
     def connect(self):
         # Bind socket for listening
@@ -58,7 +63,8 @@ class ControlServer(object):
         self.socket.bind(self.serverAddr)
 
     def process(self):
-        log_every = 1000
+        log_every = config.get('control', 'logevery')
+
         # Receive the payload from server
         payload = None
         payload = json.loads(self.socket.recv())
@@ -81,100 +87,47 @@ class ControlServer(object):
             logging.info(payload)
         return payload
 
-
-#class ServoBlaster(object):
-#
-#    # Class Variables
-#    sb = None
-#
-#    def __init__(self):
-#        self.sb = open('/dev/servoblaster', 'w')
-#
-#    def write(self, servo, percentage):
-#        #logging.info(str(servo)+" - "+str(percentage))
-#        cmd = str(servo)+"="+str(percentage)+"%\n"
-#        self.sb.write(cmd)
-#        self.sb.flush()
-#
-#    def close(self):
-#        self.sb.close()
-
-configFile = "/opt/rover/etc/rover.cfg"
-cp = ConfigParser.RawConfigParser()
-cp.read(configFile)
-
+# Setup ZMQ Server
+###############################################################################
 server = ControlServer(
-    cp.get('network', 'zmq_proto').replace('\'', ''),
-    cp.get('network', 'ip_rvr').replace('\'', ''),
-    cp.get('network', 'control_port')
+    config.get('zeromq', 'protocol').replace('\'', ''),
+    config.get('rover', 'ip_address').replace('\'', ''),
+    config.get('zeromq', 'port')
 )
 
-# Instanciate ServoBlaster
-#servo = ServoBlaster()
-
+# TODO: probably should move these to a class of their own, or integrate with ControlServer
 def axis2PWM(value):
-    #return int(math.floor(interp(value, [0, 100], [228, 533])))
+    return int(math.floor(interp(value, [0, 100], [228, 533])))
+    #return int(math.floor(interp(value, [-1.0, 0.9999], [228, 533])))
+
+def fltmode2PWM(value):
     return int(math.floor(interp(value, [-1.0, 0.9999], [228, 533])))
 
 def mode2PWM(value):
     return int(math.floor(interp(value, [1, 100], [228, 533])))
 
-#myscreen = curses.initscr()
-#myscreen.border(0)
-
-def cursesDebug(pos, name, value):
-    myscreen.addstr(pos, 2, str(name)+":")
-    myscreen.addstr(pos, 14, str(value))
-    myscreen.refresh()
-    #myscreen.getch()
-
-def screenDebug():
-    # DEBUG
-    my = payload['control']['throttle']['axes']['mousey']
-    cursesDebug(2, "Mouse_y", my)
-    mx = payload['control']['throttle']['axes']['mousex']
-    cursesDebug(4, "Mouse_x", mx)
-
-    ts = payload['control']['throttle']['axes']['topspinner']
-    cursesDebug(6, "TopSPin", ts)
-    bs = payload['control']['throttle']['axes']['botspinner']
-    cursesDebug(7, "TopSPin", bs)
-
-    rty3 = payload['control']['throttle']['axes']['rty3']
-    cursesDebug(8, 'rty3', rty3)
-
-    #mode = mode2PWM(payload['control']['throttle']['buttons']['fltmode'])
-    #cursesDebug(9, 'mode', mode)
-
 while True:
     payload = None
     payload = server.process()
+    print payload
 
-    #screenDebug()
 
-    # Work control code here
-    # =========================================================================
-
-    # Interpolate stick axis - Use for STICK control
-    #stick_y = axis2PWM(payload['control']['stick']['y']) # Y Axis
-    #server.pwm.setPWM(0, 0, stick_y)
-    #stick_x = axis2PWM(payload['control']['stick']['x']) # X Axis
-    #server.pwm.setPWM(1, 0, stick_x)
-
-    # Interpolate thrust & twist - use for thrust & twist control
-    steer = axis2PWM(payload['control']['stick']['z'])
+    # Process STEERING
+    steer = axis2PWM(payload['control']['steer'])
     server.pwm.setPWM(0, 0, steer)
+
+    # Process THRUST
     thrust = axis2PWM(payload['control']['thrust'])
     server.pwm.setPWM(1, 0, thrust)
 
-    # Interpolate Camera Control
-    trim_top = axis2PWM(payload['control']['trim']['top']) # X Axis
-    server.pwm.setPWM(7, 0, trim_top)
-#    trim_bot = axis2PWM(payload['control']['trim']['bot']) # Y Axis
-#    server.pwm.setPWM(8, 0, trim_bot)
+    # Process CAMERA CONTROL AXIS
+    camera_x = axis2PWM(payload['control']['camera']['x'])
+    #camera_y = axis2PWM(payload['control']['camera']['y'])
+    server.pwm.setPWM(7, 0, camera_x)
 
-    # Flight Modes
-    fltmode = axis2PWM(payload['control']['fltmode'])
-    #fltmode = axis2PWM(payload['control']['throttle']['axes']['rty3'])
+    # Process CAMERA SWITCHING
+
+    # Process FLIGHT MODES
+    fltmode = fltmode2PWM(payload['control']['fltmode'])
     server.pwm.setPWM(8, 0, fltmode)
 

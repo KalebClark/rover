@@ -1,14 +1,16 @@
 #!/usr/bin/env python
-import sys
-import re
+import fcntl
 import os
+import socket
+import struct
+import sys
+import time
 from ConfigParser import SafeConfigParser
 from subprocess import PIPE, Popen
+
 from termcolor import colored
 
-import socket
-import fcntl
-import struct
+from lib.Adafruit_PWM_Servo_Driver.Adafruit_PWM_Servo_Driver import PWM
 
 # Read Config File
 conf = SafeConfigParser()
@@ -95,6 +97,24 @@ def check_system(host):
         print("%s\t(%s)" % (colored('FAIL', 'red'), mem))
 
     return [cpu.rstrip(), mem.rstrip().replace('M', '')]
+
+def test_camera(servo):
+    print "Testing Camera"
+    pwm = PWM(0x40, debug=False)
+    pwm.setPWMFreq(60) 
+
+    sMin = 150
+    sMax = 600
+    testing = True
+
+    for x in range(1, 3):
+        pwm.setPWM(servo, 0, sMin)
+        time.sleep(1)
+        pwm.setPWM(servo, 0, sMax)
+        time.sleep(1)
+
+
+
     
 
 
@@ -184,6 +204,10 @@ elif cmd == 'sync-self':
     do_sync_self()
 elif cmd == 'sync-conf':
     do_sync_conf()
+elif cmd == 'test':
+    test_camera(7)
+    test_camera(0)
+    test_camera(1)
 else:
     print "Usage: %s command" % sys.argv[0]
     print "Commands:"
